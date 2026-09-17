@@ -934,6 +934,7 @@ def _expand_call(
             "WideFullHeroActionLayout",
             "WideHeroActionFullLayout",
             "WideFullTwoCompactLayout",
+            "WideWeatherEarphoneThreeMaskLayout",
             "WideFourCompactLayout",
             "WideFullHeroTwoActionLayout",
             "WideTwoHeroActionLayout",
@@ -1263,6 +1264,13 @@ def _validate_provider_template_state(
                 raise TerselConversionError(
                     "Bluetooth Provider Template variant does not match "
                     "the trusted connection state."
+                )
+            return
+        if variant_name == "connectionBatteryCompact":
+            if facts.is_connected is None or facts.case_battery_level is None:
+                raise TerselConversionError(
+                    "Bluetooth Provider Template variant does not match "
+                    "the trusted connection and case battery state."
                 )
             return
         if variant_name == "earbudsSupport":
@@ -6534,6 +6542,10 @@ def _validate_provider_template_layout_action_requirements(
         "WideFullHeroActionLayout": (("Full", "Hero"), ("PillAction",)),
         "WideHeroActionFullLayout": (("Full", "Hero"), ("PillAction",)),
         "WideFullTwoCompactLayout": (("Full", "Compact", "Compact"), ()),
+        "WideWeatherEarphoneThreeMaskLayout": (
+            ("Full", "Compact"),
+            ("CompactAction",),
+        ),
         "WideFourCompactLayout": (("Compact",) * 4, ()),
         "WideFullHeroTwoActionLayout": (
             ("Full", "Hero"),
@@ -6659,7 +6671,7 @@ def _parsed_layout_template_id(
     if layout_id not in UX_LAYOUT_COMPONENT_IDS:
         return ""
     definition = registry.require_template(node.name)
-    if not definition.accepts_children or definition.provider_id != "com.huawei.layout.cli":
+    if not definition.accepts_children:
         return ""
     return layout_id
 
@@ -6722,6 +6734,17 @@ def _composition_matches_template_plan(
     layout_id = _parsed_layout_template_id(composition, registry)
     if f"{layout_id}@1" != plan.layout_template_id:
         return False
+    layout_definition = registry.require_template(plan.layout_template_id)
+    layout_properties = layout_definition.variants[0].parameters_schema.get("properties", {})
+    layout_params = (
+        composition.values[0]
+        if composition.values and isinstance(composition.values[0], dict)
+        else {}
+    )
+    if "fusion" in layout_properties:
+        expected_fusion = True if registry.enable_fusion_ball else None
+        if layout_params.get("fusion") is not expected_fusion:
+            return False
     root_assignments = tuple(
         item for item in plan.action_assignments if item.consumer == "root-action"
     )
@@ -6753,6 +6776,8 @@ def _composition_matches_template_plan(
             return False
         params = child.values[0] if child.values and isinstance(child.values[0], dict) else {}
         if params.get("actionId") != assignment.action_id:
+            return False
+        if any(params.get(name) != value for name, value in assignment.template_props.items()):
             return False
     return True
 
@@ -9157,6 +9182,14 @@ def _lower_action_template_tree(
     root_options = next((value for value in content.values if isinstance(value, dict)), None)
     if root_options is None or "onClick" not in root_options:
         raise TerselConversionError("UX Action Template must declare onClick.")
+    preserve_template_background = root_options.get("_preserveTemplateBackground") is True
+    if "_preserveTemplateBackground" in root_options:
+        cleaned = dict(root_options)
+        cleaned.pop("_preserveTemplateBackground", None)
+        values = tuple(cleaned if value is root_options else value for value in content.values)
+        content = Nested2Node(content.component_type, values, content.children)
+    if preserve_template_background:
+        return content
     return _merge_node_options(content, {"backgroundColor": background})
 
 
