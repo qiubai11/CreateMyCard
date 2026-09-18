@@ -7928,10 +7928,6 @@ async def test_q083_weather_earphone_uses_three_mask_wide_template(
         NoModelCalls(),
         deterministic_plan=True,
         enable_fusion_ball=enable_background,
-        trusted_template_candidate_ids=(
-            "WeatherOverviewCyclingRainFull@1",
-            "BluetoothDeviceOverviewConnectionBatteryCompact@1",
-        ),
     )
 
     assert output.template_ids == (
