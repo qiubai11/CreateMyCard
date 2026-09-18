@@ -8023,13 +8023,23 @@ async def test_q083_weather_earphone_uses_three_mask_wide_template(
         assert background["styles"]["width"] == 300
         assert background["styles"]["height"] == 150
         assert background["styles"]["borderRadius"] == 20
-        assert background["styles"]["margin"] == {"left": -12, "top": -12}
+        assert "margin" not in background["styles"]
         content = next(
             item for item in components
             if background["id"] in item.get("children", [])
         )
-        assert content["styles"]["height"] == 126
+        assert content["styles"]["height"] == "matchParent"
+        assert content["styles"]["alignContent"] == "center"
         assert content["styles"]["clip"] is False
+        mask_layout = next(
+            item for item in components if item.get("id") == "q83MaskLayout"
+        )
+        assert mask_layout["styles"]["width"] == 276
+        assert mask_layout["styles"]["height"] == 126
+        foreground = next(
+            item for item in components if content["id"] in item.get("children", [])
+        )
+        assert foreground["styles"]["padding"] == 0
     else:
         assert root["styles"]["backgroundColor"] != "#00000000"
     ring_icon = next(item for item in components if "drop_1.svg" in str(item.get("src", "")))
