@@ -476,7 +476,7 @@ def compile_ux_layout_card(
     content = _deduplicate_visible_text(content, task_spec)
     content_height = _estimate_height(content)
     body_budget = _ux_layout_body_budget(registry, task_spec.size)
-    if content_height > body_budget:
+    if not _preserves_template_background(content) and content_height > body_budget:
         content = _constrain_content_height(content, body_budget)
     fusion_palette = _template_fusion_ball_palette(
         task_spec.size,
@@ -5542,10 +5542,7 @@ def _compile_ux_layout_shell(
         (value for value in content.values if isinstance(value, dict)),
         None,
     )
-    preserve_template_background = bool(
-        content_options
-        and content_options.get("_preserveTemplateBackground") is True
-    )
+    preserve_template_background = _preserves_template_background(content)
     if content_options and "_preserveTemplateBackground" in content_options:
         cleaned = dict(content_options)
         cleaned.pop("_preserveTemplateBackground", None)
@@ -5556,6 +5553,7 @@ def _compile_ux_layout_shell(
     if preserve_template_background:
         root_options.pop("linearGradient", None)
         root_options["backgroundColor"] = "#00000000"
+        root_options["padding"] = 0
     root_options.setdefault("padding", registry.ux_tokens["safeInset"])
     root_options.setdefault("borderRadius", registry.ux_tokens["radius"])
     root_options.setdefault("itemMargin", registry.ux_tokens["sectionGap"])
@@ -5567,6 +5565,14 @@ def _compile_ux_layout_shell(
     root_options["_id"] = "root"
     template_root = _merge_node_options(content, {"_id": _TEMPLATE_ROOT_ID})
     return Nested2Node("Column", ("card", root_options), (template_root,))
+
+
+def _preserves_template_background(content: Nested2Node) -> bool:
+    options = next(
+        (value for value in content.values if isinstance(value, dict)),
+        None,
+    )
+    return bool(options and options.get("_preserveTemplateBackground") is True)
 
 
 def _template_fusion_ball_palette(

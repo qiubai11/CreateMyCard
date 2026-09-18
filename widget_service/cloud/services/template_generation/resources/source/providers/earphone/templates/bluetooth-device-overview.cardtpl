@@ -1693,8 +1693,8 @@ data = {
 Stack(
   {
     "width": "matchParent",
-    "height": 126,
-    "alignContent": "topStart",
+    "height": "matchParent",
+    "alignContent": "center",
     "clip": false,
     "_preserveTemplateBackground": #Expr(props.fusion ? true : false)
   },
@@ -1705,7 +1705,6 @@ Stack(
         "width": 300,
         "height": 150,
         "borderRadius": 20,
-        "margin": {"left": -12, "top": -12},
         "alignContent": "topStart",
         "clip": true
       },
@@ -1736,8 +1735,8 @@ Stack(
   Row(
     {
       "_id": "q83MaskLayout",
-      "width": "matchParent",
-      "height": "matchParent",
+      "width": 276,
+      "height": 126,
       "itemMargin": 12,
       "alignItems": "start"
     },
