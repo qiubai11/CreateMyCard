@@ -90,6 +90,21 @@ _WIDE_LAYOUTS = (
 )
 
 
+def wide_layout_specificity(layout_template_id: str) -> int:
+    """Return the number of exact template/action constraints on a wide layout.
+
+    A constrained layout is a more precise match than a generic layout with the
+    same roles.  Keeping this signal on the declarative layout option avoids
+    adding case-specific selection branches to the planner.
+    """
+    for layout in _WIDE_LAYOUTS:
+        if f"{layout.layout_id}@1" == layout_template_id:
+            return len(layout.required_template_ids) + len(
+                layout.required_action_event_ids
+            )
+    return 0
+
+
 @dataclass(frozen=True)
 class WidePlanComposition:
     layout_template_id: str
