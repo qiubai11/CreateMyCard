@@ -1631,9 +1631,10 @@ data = {
 Stack(
   {
     "width": "matchParent",
-    "height": "matchParent",
+    "height": 126,
     "alignContent": "topStart",
-    "clip": false
+    "clip": false,
+    "_preserveTemplateBackground": #Expr(props.fusion ? true : false)
   },
   #if props.fusion
     Stack(
@@ -1641,6 +1642,7 @@ Stack(
         "_id": "q83FusionBackground",
         "width": 300,
         "height": 150,
+        "borderRadius": 20,
         "margin": {"left": -12, "top": -12},
         "alignContent": "topStart",
         "clip": true
@@ -1683,7 +1685,7 @@ Stack(
         "height": 126,
         "padding": 8,
         "borderRadius": 12,
-        "backgroundColor": $theme('supportContentStyle.backgroundColor'),
+        "backgroundColor": "#19CCDDFF",
         "clip": true
       },
       children[0]
@@ -1696,7 +1698,7 @@ Stack(
           "height": 57,
           "padding": {"left": 8, "top": 6, "right": 8, "bottom": 7},
           "borderRadius": 12,
-          "backgroundColor": $theme('supportContentStyle.backgroundColor'),
+          "backgroundColor": "#33CCDDFF",
           "clip": true
         },
         children[1]

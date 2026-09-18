@@ -7980,9 +7980,16 @@ async def test_q083_weather_earphone_uses_three_mask_wide_template(
         for component in components
         if component.get("onClick")
     )
-    assert right_bottom["styles"]["backgroundColor"] == right_top["styles"][
-        "backgroundColor"
-    ]
+    left_mask = next(
+        component
+        for component in components
+        if component.get("styles", {}).get("width") == 132
+        and component.get("styles", {}).get("height") == 126
+        and component.get("styles", {}).get("padding") == 8
+    )
+    assert left_mask["styles"]["backgroundColor"] == "#19CCDDFF"
+    assert right_top["styles"]["backgroundColor"] == "#33CCDDFF"
+    assert right_bottom["styles"]["backgroundColor"] == "#33CCDDFF"
     assert right_bottom["styles"]["borderRadius"] == 12
     assert right_bottom["styles"]["clip"] is True
     rain_ring = next(item for item in components if item.get("component") == "Progress")
@@ -8007,6 +8014,24 @@ async def test_q083_weather_earphone_uses_three_mask_wide_template(
     assert len(ids) == len(components)
     root = next(item for item in components if item.get("id") == "root")
     assert root.get("styles", {}).get("borderRadius") == (20 if fusion_expected else 18)
+    if fusion_expected:
+        assert root["styles"]["backgroundColor"] == "#00000000"
+        assert "linearGradient" not in root["styles"]
+        background = next(
+            item for item in components if item.get("id") == "q83FusionBackground"
+        )
+        assert background["styles"]["width"] == 300
+        assert background["styles"]["height"] == 150
+        assert background["styles"]["borderRadius"] == 20
+        assert background["styles"]["margin"] == {"left": -12, "top": -12}
+        content = next(
+            item for item in components
+            if background["id"] in item.get("children", [])
+        )
+        assert content["styles"]["height"] == 126
+        assert content["styles"]["clip"] is False
+    else:
+        assert root["styles"]["backgroundColor"] != "#00000000"
     ring_icon = next(item for item in components if "drop_1.svg" in str(item.get("src", "")))
     assert ring_icon.get("styles", {}).get("width") == 20
 

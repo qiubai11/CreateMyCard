@@ -1737,6 +1737,7 @@ def _compile_time_conditional_value(call: ast.Call) -> TemplateValue:
             "binding",
             "parameter",
             "literal",
+            "theme",
             "compile-time-conditional",
         }:
             raise ValueError(

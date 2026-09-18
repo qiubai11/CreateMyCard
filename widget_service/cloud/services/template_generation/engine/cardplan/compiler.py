@@ -5532,6 +5532,24 @@ def _compile_ux_layout_shell(
 ) -> Nested2Node:
     theme = registry.require_theme(contract.theme_profile_id)
     root_options = _normalize_theme_styles(theme.root_style)
+    content_options = next(
+        (value for value in content.values if isinstance(value, dict)),
+        None,
+    )
+    preserve_template_background = bool(
+        content_options
+        and content_options.get("_preserveTemplateBackground") is True
+    )
+    if content_options and "_preserveTemplateBackground" in content_options:
+        cleaned = dict(content_options)
+        cleaned.pop("_preserveTemplateBackground", None)
+        values = tuple(
+            cleaned if value is content_options else value for value in content.values
+        )
+        content = Nested2Node(content.component_type, values, content.children)
+    if preserve_template_background:
+        root_options.pop("linearGradient", None)
+        root_options["backgroundColor"] = "#00000000"
     root_options.setdefault("padding", registry.ux_tokens["safeInset"])
     root_options.setdefault("borderRadius", registry.ux_tokens["radius"])
     root_options.setdefault("itemMargin", registry.ux_tokens["sectionGap"])

@@ -69,7 +69,7 @@ _WIDE_LAYOUTS = (
             }
         ),
         frozenset({"event.open.music.favorite"}),
-        ({"compactInset": True},),
+        ({"compactInset": True, "strongMaskBackground": True},),
     ),
     WideLayoutOption("WideFullTwoCompactLayout", ("Full", "Compact"), ("CompactAction",), (None,)),
     WideLayoutOption("WideFullTwoCompactLayout", ("Hero", "Compact"), ("CompactAction",), (None,)),
