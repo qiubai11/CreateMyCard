@@ -33,7 +33,7 @@ Stack({
 )
 #End
 
-#Template CompactAction@1(props: { actionId: string, label: string, icon: asset, subtitle?: string, prominent?: boolean, compactInset?: boolean, strongMaskBackground?: boolean })
+#Template CompactAction@1(props: { actionId: string, label: string, icon: asset, subtitle?: string, prominent?: boolean, embedded?: boolean })
 data = {
 }
 
@@ -41,10 +41,9 @@ Stack({
   "width": "matchParent",
   "height": "matchParent",
   "borderRadius": $theme('supportContentStyle.borderRadius'),
-  "backgroundColor": #Expr(props.strongMaskBackground ? '#33CCDDFF' : $theme('supportContentStyle.backgroundColor')),
-  "_preserveTemplateBackground": #Expr(props.compactInset ? true : false),
+  "backgroundColor": #Expr(props.embedded ? '#00000000' : $theme('supportContentStyle.backgroundColor')),
   "alignContent": "center",
-  "clip": #Expr(props.compactInset ? true : false),
+  "clip": false,
   "onClick": EventAction(props.actionId)
 },
 #if props.prominent
@@ -98,10 +97,10 @@ Stack({
     "width": "matchParent",
     "height": "matchParent",
     "padding": {
-      "left": #Expr(props.compactInset ? 8 : 12),
-      "top": #Expr(props.compactInset ? 6 : 0),
-      "right": #Expr(props.compactInset ? 8 : 16),
-      "bottom": #Expr(props.compactInset ? 7 : 0)
+      "left": #Expr(props.embedded ? 8 : 12),
+      "top": #Expr(props.embedded ? 6 : 0),
+      "right": #Expr(props.embedded ? 8 : 16),
+      "bottom": #Expr(props.embedded ? 7 : 0)
     },
     "justifyContent": "spaceBetween",
     "alignItems": "center"

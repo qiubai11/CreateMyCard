@@ -1695,8 +1695,7 @@ Stack(
     "width": "matchParent",
     "height": "matchParent",
     "alignContent": "center",
-    "clip": false,
-    "_preserveTemplateBackground": #Expr(props.fusion ? true : false)
+    "clip": false
   },
   #if props.fusion
     Stack(
@@ -1764,7 +1763,16 @@ Stack(
         },
         children[1]
       ),
-      Column({"width": 132, "height": 57}, children[2])
+      Column(
+        {
+          "width": 132,
+          "height": 57,
+          "borderRadius": 12,
+          "backgroundColor": "#33CCDDFF",
+          "clip": true
+        },
+        children[2]
+      )
     )
   )
 )

@@ -62,7 +62,7 @@ _ACTION_LABELS = {
     "event.open.weather": "查看详情",
     "event.open.clock.alarm": "设置闹钟",
     "event.open.music.daily": "每日推荐",
-    "event.open.music.favorite": "打开歌单",
+    "event.open.music.favorite": "心动歌单",
     "event.open.health.sport": "今日训练",
     "event.open.health.sleep": "睡眠详情",
     "event.viewCalendarEvent": "查看日程",
@@ -72,7 +72,6 @@ _ACTION_LABELS = {
 _ACTION_SUBTITLES = {
     "event.viewCalendarEvent": "日程详情",
     "event.open.clock.alarm": "闹钟应用",
-    "event.open.music.favorite": "播放我的收藏",
 }
 _ASSET_SEMANTIC_TERMS = {
     "calendar": ("calendar", "schedule", "日程", "日历"),

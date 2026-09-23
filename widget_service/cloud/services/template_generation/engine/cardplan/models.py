@@ -23,7 +23,6 @@ _BUSINESS_TEMPLATE_SUPPORTED_LAYOUTS = (
     "WideFullHeroActionLayout",
     "WideHeroActionFullLayout",
     "WideFullTwoCompactLayout",
-    "WideWeatherEarphoneThreeMaskLayout",
     "WideFourCompactLayout",
     "WideFullHeroTwoActionLayout",
     "WideTwoHeroActionLayout",
@@ -113,6 +112,10 @@ class TemplatePlan(StrictModel):
     plan_id: str = Field(alias="planId", min_length=1)
     theme_id: str = Field(alias="themeId", min_length=1)
     layout_template_id: str = Field(alias="layoutTemplateId", min_length=1)
+    layout_props: dict[str, str | int | float | bool] = Field(
+        default_factory=dict,
+        alias="layoutProps",
+    )
     business_slots: tuple[TemplatePlanBusinessSlot, ...] = Field(
         alias="businessSlots",
         min_length=1,
@@ -311,6 +314,7 @@ class TemplateDefinition(StrictModel):
         alias="assetParameterSemanticTags",
     )
     supported_event_ids: tuple[str, ...] = Field(default=(), alias="supportedEventIds")
+    required_data_admission: bool = Field(default=False, alias="requiredDataAdmission")
     provider_id: str | None = Field(default=None, alias="providerId")
     business_id: str | None = Field(default=None, alias="businessId")
     capability_id: str | None = Field(default=None, alias="capabilityId")

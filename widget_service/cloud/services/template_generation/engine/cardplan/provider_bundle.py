@@ -66,7 +66,6 @@ _LAYOUT_COMPONENTS = frozenset(
         "WideFullHeroActionLayout",
         "WideHeroActionFullLayout",
         "WideFullTwoCompactLayout",
-        "WideWeatherEarphoneThreeMaskLayout",
         "WideFourCompactLayout",
         "WideFullHeroTwoActionLayout",
         "WideTwoHeroActionLayout",
@@ -196,6 +195,10 @@ class ProviderTemplateEntry(StrictModel):
         default_factory=dict, alias="assetParameterSemanticTags"
     )
     supported_event_ids: tuple[str, ...] = Field(default=(), alias="supportedEventIds")
+    required_data_admission: bool = Field(
+        default=False,
+        alias="requiredDataAdmission",
+    )
     entry: str = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -463,6 +466,7 @@ def load_provider_bundle(bundle_root: Path) -> LoadedProviderBundle:
             "requires_layout_action": entry.requires_layout_action,
             "asset_parameter_semantic_tags": asset_tags,
             "supported_event_ids": entry.supported_event_ids,
+            "required_data_admission": entry.required_data_admission,
         })
         if entry.supported_event_ids:
             for variant in definition.variants:

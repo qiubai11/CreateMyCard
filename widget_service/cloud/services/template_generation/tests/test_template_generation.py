@@ -83,6 +83,7 @@ from services.template_generation.engine.cardplan.compiler import (
     _inject_resource_battery_title,
     _instantiate_blueprint,
     _lower_action_template_tree,
+    _normalize_plan_fixed_props,
     _provider_layout_action_background,
     _provider_template_binding_values,
     _validate_provider_template_state,
@@ -96,7 +97,9 @@ from services.template_generation.engine.cardplan.models import (
     ActionBinding,
     HybridBodyContract,
     HybridLimits,
+    TemplatePlan,
 )
+from services.template_generation.engine.cardplan.parser import parse_ux_layout_card
 from services.template_generation.engine.cardplan.prompt import (
     _provider_variant_matches_trusted_state,
     _ux_layout_action_rule,
@@ -6849,59 +6852,6 @@ async def test_template_facade_returns_only_compact_source_dsl_string(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_template_facade_deterministic_plan_does_not_require_model_runtime(
-    monkeypatch,
-):
-    class Output:
-        a2ui = _minimal_template_a2ui()
-        template_ids = ("WeatherOverviewFull@1",)
-        expanded_component_count = 3
-
-    async def generate(
-        _task_spec: TaskSpec,
-        _card_spec: dict,
-        _bindings: tuple[CandidateDataBinding, ...],
-        model_client: Any,
-        *,
-        enable_fusion_ball: bool,
-        deterministic_plan: bool,
-    ) -> Output:
-        assert model_client is None
-        assert enable_fusion_ball is False
-        assert deterministic_plan is True
-        return Output()
-
-    def fail_model_client(*_args: Any) -> Any:
-        raise AssertionError("deterministic template routing must not create a model client")
-
-    monkeypatch.setattr(facade, "create_template_model_client", fail_model_client)
-    monkeypatch.setattr(facade, "generate_template_engine_a2ui", generate)
-
-    result = await facade.request_template_source_dsl(
-        _weather_task_spec(),
-        _weather_card_spec(),
-        (),
-        processor_kind=DslProcessorKind.DESIGN_COMPACT,
-        protocol_profile=A2UIProtocolRegistry(
-            A2UI_FORM_PROTOCOL_PROFILE_ID
-        ).get_profile(),
-        model_runtime=None,
-        model_request_context=ModelRequestContext(
-            session_id="session",
-            interaction_id="interaction",
-            device_id="device",
-            country_code="CN",
-            app_version=_TEST_APP_VERSION,
-            app_name="CreateMyCard",
-        ),
-        enable_fusion_ball=False,
-        deterministic_plan=True,
-    )
-
-    assert isinstance(result, str)
-
-
-@pytest.mark.asyncio
 async def test_template_facade_preserves_effective_bindings(monkeypatch):
     observed_fields: list[str] = []
 
@@ -7593,13 +7543,6 @@ async def test_q083_weather_earphone_uses_three_mask_wide_template(
 
     monkeypatch.setattr(get_settings(), "CONFIG", {"fusion_ball_min_prd_version": "11.7.5.206"})
 
-    class NoModelCalls:
-        async def generate_json(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
-            pytest.fail("deterministic Q083 must not call the retrieval model")
-
-        async def generate(self, *_args: Any, **_kwargs: Any) -> str:
-            pytest.fail("deterministic Q083 must not call the composition model")
-
     def field(value: Any, field_type: str) -> dict[str, Any]:
         return {
             "type": field_type,
@@ -7684,6 +7627,66 @@ async def test_q083_weather_earphone_uses_three_mask_wide_template(
     if not include_wind_direction:
         task_spec.dataModelSchema["data"]["weather"]["current"].pop("windDirection")
         bindings[0].candidateOutputFields.remove("/current/windDirection")
+
+    class Q83Model:
+        async def generate_json(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
+            return {
+                "requiredOutputFieldsByCapability": {
+                    binding.capabilityId: binding.candidateOutputFields
+                    for binding in bindings
+                },
+                "primaryOutputFieldByCapability": {
+                    "ViewWeather": "/daily/0/rainProbabilityPercent",
+                    "GetEarphoneInfo": "/batteryLevel",
+                },
+                "action": ["event.open.music.favorite"],
+            }
+
+        async def generate(
+            self,
+            messages: list[dict[str, str]],
+            _profile: dict[str, str] | None = None,
+            **_kwargs: Any,
+        ) -> str:
+            for message in messages:
+                for line in message.get("content", "").splitlines():
+                    if not line.startswith("planCandidates="):
+                        continue
+                    plans = json.loads(line.removeprefix("planCandidates="))
+                    plan = next(
+                        item
+                        for item in plans
+                        if item["layoutTemplateId"]
+                        == "WideWeatherEarphoneThreeMaskLayout@1"
+                    )
+                    assert plan["layoutProps"] == (
+                        {"fusion": True} if fusion_expected else {}
+                    )
+                    root_action = next(
+                        item
+                        for item in plan["actionAssignments"]
+                        if item["consumer"] == "root-action"
+                    )
+                    assert root_action["templateProps"] == {
+                        "label": "打开歌单",
+                        "subtitle": "播放我的收藏",
+                        "embedded": True,
+                    }
+                    children = [
+                        'Template("WeatherOverviewCyclingRainFull@1",'
+                        '{"location":"杭州","rainIcon":"resources/base/media/drop_1.svg"})',
+                        'Template("BluetoothDeviceOverviewConnectionBatteryCompact@1",'
+                        '{"caseIcon":"resources/base/media/earphone_case_16644.svg"})',
+                        'Template("CompactAction@1",'
+                        '{"actionId":"event.open.music.favorite",'
+                        '"icon":"resources/base/media/music_fill.svg"})',
+                    ]
+                    return (
+                        f'Template("{plan["layoutTemplateId"]}",{{}},'
+                        + ",".join(children)
+                        + ");"
+                    )
+            raise AssertionError("Q83 second layer did not receive atomic plans")
     card_spec = {
         "title": "骑行听歌",
         "description": "风雨耳机和歌单",
@@ -7702,8 +7705,7 @@ async def test_q083_weather_earphone_uses_three_mask_wide_template(
         task_spec,
         card_spec,
         bindings,
-        NoModelCalls(),
-        deterministic_plan=True,
+        Q83Model(),
         enable_fusion_ball=enable_background,
     )
 
@@ -7766,9 +7768,15 @@ async def test_q083_weather_earphone_uses_three_mask_wide_template(
     )
     assert left_mask["styles"]["backgroundColor"] == "#19CCDDFF"
     assert right_top["styles"]["backgroundColor"] == "#33CCDDFF"
-    assert right_bottom["styles"]["backgroundColor"] == "#33CCDDFF"
-    assert right_bottom["styles"]["borderRadius"] == 12
-    assert right_bottom["styles"]["clip"] is True
+    assert right_bottom["styles"]["backgroundColor"] == "#00000000"
+    action_mask = next(
+        component
+        for component in components
+        if right_bottom["id"] in component.get("children", [])
+    )
+    assert action_mask["styles"]["backgroundColor"] == "#33CCDDFF"
+    assert action_mask["styles"]["borderRadius"] == 12
+    assert action_mask["styles"]["clip"] is True
     rain_ring = next(item for item in components if item.get("component") == "Progress")
     assert rain_ring.get("value") == 100
     assert rain_ring["styles"]["width"] == 44
@@ -7821,6 +7829,191 @@ async def test_q083_weather_earphone_uses_three_mask_wide_template(
         assert root["styles"]["backgroundColor"] != "#00000000"
     ring_icon = next(item for item in components if "drop_1.svg" in str(item.get("src", "")))
     assert ring_icon.get("styles", {}).get("width") == 20
+
+
+def _q083_fixed_contract_plan() -> TemplatePlan:
+    return TemplatePlan.model_validate(
+        {
+            "planId": "q083-contract-test",
+            "themeId": "weather-sky-glass",
+            "layoutTemplateId": "WideWeatherEarphoneThreeMaskLayout@1",
+            "layoutProps": {"fusion": True},
+            "businessSlots": [
+                {
+                    "position": 0,
+                    "businessId": "WeatherOverview",
+                    "capabilityId": "ViewWeather",
+                    "templateId": "WeatherOverviewCyclingRainFull@1",
+                    "layoutRole": "Full",
+                },
+                {
+                    "position": 1,
+                    "businessId": "BluetoothDeviceOverview",
+                    "capabilityId": "GetEarphoneInfo",
+                    "templateId": "BluetoothDeviceOverviewConnectionBatteryCompact@1",
+                    "layoutRole": "Compact",
+                },
+            ],
+            "actionAssignments": [
+                {
+                    "actionId": "event.open.music.favorite",
+                    "consumer": "root-action",
+                    "actionTemplateId": "CompactAction@1",
+                    "templateProps": {
+                        "label": "打开歌单",
+                        "subtitle": "播放我的收藏",
+                        "embedded": True,
+                    },
+                }
+            ],
+        }
+    )
+
+
+def _q083_fixed_contract_body(
+    *,
+    layout_props: dict[str, Any] | None = None,
+    action_props: dict[str, Any] | None = None,
+) -> str:
+    action = {
+        "actionId": "event.open.music.favorite",
+        "icon": "resources/base/media/music_fill.svg",
+        **(action_props or {}),
+    }
+    return (
+        'Template("WideWeatherEarphoneThreeMaskLayout@1",'
+        f'{json.dumps(layout_props or {})},'
+        'Template("WeatherOverviewCyclingRainFull@1",{}),'
+        'Template("BluetoothDeviceOverviewConnectionBatteryCompact@1",{}),'
+        f'Template("CompactAction@1",{json.dumps(action, ensure_ascii=False)}));'
+    )
+
+
+def test_q083_server_fills_omitted_layout_and_action_fixed_props() -> None:
+    plan = _q083_fixed_contract_plan()
+    contract = HybridBodyContract.model_construct(allowed_template_plans=(plan,))
+
+    normalized = _normalize_plan_fixed_props(
+        parse_ux_layout_card(_q083_fixed_contract_body()),
+        contract,
+        get_cardplan_registry(enable_fusion_ball=True),
+    )
+
+    assert normalized.values == ({"fusion": True},)
+    assert normalized.children[2].values == (
+        {
+            "actionId": "event.open.music.favorite",
+            "icon": "resources/base/media/music_fill.svg",
+            "label": "打开歌单",
+            "subtitle": "播放我的收藏",
+            "embedded": True,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("layout_props", "action_props", "message"),
+    [
+        ({"fusion": False}, None, "fixed prop conflicts"),
+        ({"unexpected": True}, None, "unauthorized props"),
+        (None, {"actionId": "event.open.weather"}, "event conflicts"),
+        (None, {"embedded": False}, "fixed prop conflicts"),
+        (None, {"prominent": True}, "unauthorized props"),
+    ],
+)
+def test_q083_rejects_model_override_of_server_owned_contract(
+    layout_props: dict[str, Any] | None,
+    action_props: dict[str, Any] | None,
+    message: str,
+) -> None:
+    plan = _q083_fixed_contract_plan()
+    contract = HybridBodyContract.model_construct(allowed_template_plans=(plan,))
+
+    with pytest.raises(TerselConversionError, match=message):
+        _normalize_plan_fixed_props(
+            parse_ux_layout_card(
+                _q083_fixed_contract_body(
+                    layout_props=layout_props,
+                    action_props=action_props,
+                )
+            ),
+            contract,
+            get_cardplan_registry(enable_fusion_ball=True),
+        )
+
+
+@pytest.mark.parametrize(
+    ("connected_sample", "battery_sample"),
+    [(False, 0), (None, None)],
+)
+def test_connection_battery_required_data_admission_preserves_false_zero_and_none_samples(
+    connected_sample: bool | None,
+    battery_sample: int | None,
+) -> None:
+    registry = get_cardplan_registry()
+    definition = registry.require_template(
+        "BluetoothDeviceOverviewConnectionBatteryCompact@1"
+    )
+    variant = registry.require_variant(definition.wire_id, "default")
+    task = TaskSpec(
+        userQuery="耳机状态",
+        size="2x4",
+        dataModelSchema={
+            "data": {
+                "earphone": {
+                    "isConnected": {
+                        "type": "boolean",
+                        "sampleValue": connected_sample,
+                    },
+                    "batteryLevel": {
+                        "type": "integer",
+                        "sampleValue": battery_sample,
+                    },
+                }
+            }
+        },
+    )
+
+    values = _provider_template_binding_values(
+        definition,
+        variant,
+        task,
+        {"GetEarphoneInfo": ("/data/earphone",)},
+    )
+
+    assert set(values) == {"connected", "battery"}
+
+
+@pytest.mark.parametrize("invalid", ["missing", "wrong-type"])
+def test_connection_battery_required_data_admission_rejects_missing_or_wrong_type(
+    invalid: str,
+) -> None:
+    registry = get_cardplan_registry()
+    definition = registry.require_template(
+        "BluetoothDeviceOverviewConnectionBatteryCompact@1"
+    )
+    variant = registry.require_variant(definition.wire_id, "default")
+    earphone: dict[str, Any] = {
+        "isConnected": {"type": "boolean", "sampleValue": False},
+        "batteryLevel": {"type": "integer", "sampleValue": 0},
+    }
+    if invalid == "missing":
+        earphone.pop("isConnected")
+    else:
+        earphone["batteryLevel"] = {"type": "string", "sampleValue": "0"}
+    task = TaskSpec(
+        userQuery="耳机状态",
+        size="2x4",
+        dataModelSchema={"data": {"earphone": earphone}},
+    )
+
+    with pytest.raises(TerselConversionError, match="not declared by TaskSpec"):
+        _provider_template_binding_values(
+            definition,
+            variant,
+            task,
+            {"GetEarphoneInfo": ("/data/earphone",)},
+        )
 
 
 

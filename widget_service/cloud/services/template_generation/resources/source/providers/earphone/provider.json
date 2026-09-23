@@ -424,6 +424,7 @@
       "secondaryData": [
         "/isConnected"
       ],
+      "requiredDataAdmission": true,
       "optionalData": [],
       "assetParameterSemanticTags": {
         "caseIcon": [
@@ -463,6 +464,40 @@
           }
         },
         "additionalProperties": false
+      },
+      "businessSlots": [
+        {
+          "position": 0,
+          "layoutRole": "Full",
+          "templateIds": ["WeatherOverviewCyclingRainFull@1"]
+        },
+        {
+          "position": 1,
+          "layoutRole": "Compact",
+          "templateIds": ["BluetoothDeviceOverviewConnectionBatteryCompact@1"]
+        }
+      ],
+      "actionSlots": [
+        {
+          "position": 0,
+          "templateId": "CompactAction@1",
+          "eventIds": ["event.open.music.favorite"],
+          "fixedProps": {
+            "label": "打开歌单",
+            "subtitle": "播放我的收藏",
+            "embedded": true
+          }
+        }
+      ],
+      "fixedParameters": {
+        "fusion": {"source": "fusion-enabled", "omitWhenFalse": true}
+      },
+      "surfaceBudget": {
+        "canvasWidth": 300,
+        "canvasHeight": 150,
+        "contentWidth": 276,
+        "contentHeight": 126,
+        "fullBleedParameter": "fusion"
       },
       "loweringBySize": {
         "2x4": "row"
